@@ -1,0 +1,12 @@
+# =============================================================================
+# LogOps — Example Airflow Variables (Admin → Variables)
+# These are optional; DAGs also read from container environment (.env).
+# =============================================================================
+
+{
+  "msk_bootstrap_servers": "[FILL_IN_YOUR_MSK_BROKER_URL]",
+  "s3_bucket": "[FILL_IN_YOUR_S3_BUCKET_NAME]",
+  "kafka_topic": "logops.raw.logs",
+  "clickhouse_host": "clickhouse",
+  "alert_email": "[FILL_IN_YOUR_EMAIL]"
+}

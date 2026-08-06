@@ -1,0 +1,21 @@
+# =============================================================================
+# LogOps — dbt profile for Databricks
+# IMPORTANT: values must be plain strings — do NOT wrap in [brackets]
+# =============================================================================
+
+logops:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      # Workspace hostname without https://
+      host: dbc-a6db349b-3b1b.cloud.databricks.com
+      # Personal access token (plain string, no brackets)
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      # HTTP path from SQL warehouse Connection details
+      http_path: /sql/1.0/warehouses/760cd816d17f2125
+      catalog: logops
+      schema: dbt
+      threads: 4
+      connect_retries: 3
+      connect_timeout: 30

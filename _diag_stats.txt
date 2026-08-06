@@ -1,0 +1,9 @@
+﻿
+NAME                       CPU %     MEM USAGE / LIMIT
+logops-airflow-worker      201.57%   193.5MiB / 7.649GiB
+logops-airflow-webserver   110.05%   117.6MiB / 7.649GiB
+logops-airflow-scheduler   101.04%   134.7MiB / 7.649GiB
+logops-airflow-postgres    23.17%    33.21MiB / 7.649GiB
+logops-airflow-redis       9.24%     13.2MiB / 7.649GiB
+
+

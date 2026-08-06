@@ -1,0 +1,62 @@
+# =============================================================================
+# LogOps — Optional monitoring override
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+# Prometheus + Node Exporter are provided for host/container metrics.
+# Services are ready to enable; keep costs/noise low by only starting when needed.
+# =============================================================================
+
+services:
+  # Prometheus scrapes Node Exporter (and can later scrape other targets)
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: logops-prometheus
+    profiles: ["monitoring"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Node Exporter exposes Linux host metrics (CPU, mem, disk)
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: logops-node-exporter
+    profiles: ["monitoring"]
+    pid: host
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9100/metrics"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Uncomment the block below if you prefer always-on monitoring without profiles:
+  # prometheus:
+  #   ...
+  # node-exporter:
+  #   ...
+
+volumes:
+  prometheus-data:

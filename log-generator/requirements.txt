@@ -1,0 +1,2 @@
+# Python packages required by the LogOps fake log generator
+Faker==22.6.0

@@ -1,0 +1,28 @@
+# =============================================================================
+# LogOps — Example Terraform variable values
+# Copy this file to terraform.tfvars and replace every [FILL_IN_YOUR_XXX].
+# Never commit real secrets or personal IPs to git.
+# =============================================================================
+
+aws_region     = "[FILL_IN_YOUR_AWS_REGION]"
+project_name   = "logops"
+
+# Existing EC2 key pair name in your AWS account (not the .pem filename)
+ec2_key_pair_name = "[FILL_IN_YOUR_EC2_KEY_PAIR_NAME]"
+
+# Lock SSH to your IP when possible, e.g. "203.0.113.10/32"
+ssh_allowed_cidr = "[FILL_IN_YOUR_SSH_ALLOWED_CIDR]"
+
+# Must be globally unique across all of AWS
+s3_bucket_name = "[FILL_IN_YOUR_S3_BUCKET_NAME]"
+
+# Optional overrides (defaults are fine for a beginner demo)
+ec2_instance_type = "t3.small"
+enable_msk        = false
+
+common_tags = {
+  Project     = "LogOps"
+  Environment = "dev"
+  ManagedBy   = "terraform"
+  Owner       = "[FILL_IN_YOUR_NAME]"
+}

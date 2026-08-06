@@ -1,0 +1,105 @@
+# =============================================================================
+# LogOps — Local Kafka override (NO AWS MSK)
+# Adds Apache Kafka (KRaft, no ZooKeeper) + local ClickHouse bridge processor.
+# Use with the FULL stack (Airflow/Superset/etc.):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local-kafka.yml up -d
+#
+# Set in .env:
+#   MSK_BOOTSTRAP_SERVERS=kafka:29092
+# =============================================================================
+
+services:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: logops-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: logopsKafkaCluster01
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  # Point Kafka UI at the local broker instead of MSK
+  kafka-ui:
+    environment:
+      KAFKA_CLUSTERS_0_NAME: logops-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  fluent-bit:
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      MSK_BOOTSTRAP_SERVERS: kafka:29092
+    healthcheck:
+      disable: true
+
+  # Local bridge: Kafka -> ClickHouse (stands in for Databricks Gold on a laptop)
+  log-processor:
+    build:
+      context: ./log-processor
+    container_name: logops-log-processor
+    depends_on:
+      kafka:
+        condition: service_healthy
+      clickhouse-init:
+        condition: service_completed_successfully
+    environment:
+      MSK_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-logops.raw.logs}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    restart: unless-stopped
+
+  clickhouse-seed:
+    image: clickhouse/clickhouse-server:23.12
+    container_name: logops-clickhouse-seed
+    depends_on:
+      clickhouse-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./clickhouse/seed-demo-data.sql:/seed.sql:ro
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -euo pipefail
+        clickhouse-client --host clickhouse --user "$${CLICKHOUSE_USER}" --password "$${CLICKHOUSE_PASSWORD}" --multiquery < /seed.sql
+        echo "Demo seed data loaded"
+    restart: "no"
+
+volumes:
+  kafka-data:

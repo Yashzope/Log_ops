@@ -1,0 +1,7 @@
+﻿NAMES                      STATUS                            PORTS
+logops-airflow-worker      Up 5 seconds (health: starting)   8080/tcp
+logops-airflow-webserver   Up 2 seconds (health: starting)   0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+logops-airflow-scheduler   Up 4 seconds (health: starting)   8080/tcp
+logops-airflow-init        Exited (0) 8 minutes ago          
+logops-airflow-postgres    Up 16 minutes (healthy)           5432/tcp
+logops-airflow-redis       Up 16 minutes (healthy)           6379/tcp

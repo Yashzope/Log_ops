@@ -1,0 +1,14 @@
+# Tell Grafana to auto-load dashboards from the mounted dashboards folder
+apiVersion: 1
+
+providers:
+  - name: LogOps
+    orgId: 1
+    folder: LogOps
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

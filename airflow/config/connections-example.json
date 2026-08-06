@@ -1,0 +1,26 @@
+# =============================================================================
+# LogOps — Example Airflow Connections / Variables
+# Import via Airflow UI (Admin → Connections) or:
+#   airflow connections import airflow/config/connections-example.json
+# Replace every [FILL_IN_YOUR_XXX] first.
+# =============================================================================
+
+{
+  "databricks_default": {
+    "conn_type": "databricks",
+    "description": "Databricks workspace used by LogOps Bronze/Silver/Gold DAGs",
+    "host": "[FILL_IN_YOUR_DATABRICKS_HOST]",
+    "login": "token",
+    "password": "[FILL_IN_YOUR_DATABRICKS_TOKEN]",
+    "extra": "{}"
+  },
+  "smtp_default": {
+    "conn_type": "email",
+    "description": "SMTP for Airflow failure emails",
+    "host": "[FILL_IN_YOUR_SMTP_HOST]",
+    "login": "[FILL_IN_YOUR_SMTP_USER]",
+    "password": "[FILL_IN_YOUR_SMTP_PASSWORD]",
+    "port": 587,
+    "extra": "{\"from_email\": \"[FILL_IN_YOUR_EMAIL]\"}"
+  }
+}

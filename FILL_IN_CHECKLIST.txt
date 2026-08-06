@@ -1,0 +1,65 @@
+# =============================================================================
+# LogOps — Fill-in checklist (print this or keep it open while configuring)
+# Search the repo for [FILL_IN_YOUR_ to find every placeholder.
+# =============================================================================
+
+## A. AWS / Terraform  (aws-infra/terraform.tfvars)
+
+[ ] FILL_IN_YOUR_AWS_REGION              e.g. us-east-1
+[ ] FILL_IN_YOUR_EC2_KEY_PAIR_NAME       name shown in EC2 → Key pairs (not the .pem filename)
+[ ] FILL_IN_YOUR_SSH_ALLOWED_CIDR        e.g. 203.0.113.10/32  (your public IP)
+[ ] FILL_IN_YOUR_S3_BUCKET_NAME          globally unique, e.g. logops-delta-yourname-2026
+[ ] FILL_IN_YOUR_NAME                    owner tag
+
+## B. Laptop / EC2 access  (.env)
+
+[ ] FILL_IN_YOUR_PEM_FILE / EC2_SSH_KEY_PATH   full path to your .pem
+[ ] EC2_PUBLIC_IP                              auto-filled by deploy scripts after terraform apply
+[ ] FILL_IN_YOUR_MSK_BROKER_URL                from: terraform output -raw msk_bootstrap_brokers
+[ ] FILL_IN_YOUR_S3_BUCKET_NAME                same as Terraform
+[ ] FILL_IN_YOUR_AWS_REGION                    same as Terraform
+
+## C. Passwords (auto via scripts/generate-secrets.sh or Generate-Secrets.ps1)
+
+[ ] AIRFLOW_FERNET_KEY
+[ ] AIRFLOW_POSTGRES_PASSWORD
+[ ] AIRFLOW_ADMIN_PASSWORD
+[ ] CLICKHOUSE_PASSWORD
+[ ] MINIO_ROOT_PASSWORD
+[ ] GRAFANA_ADMIN_PASSWORD
+[ ] SUPERSET_SECRET_KEY
+[ ] SUPERSET_ADMIN_PASSWORD
+
+## D. Databricks  (.env + dbt/logops/profiles.yml)
+
+[ ] FILL_IN_YOUR_DATABRICKS_HOST           e.g. https://dbc-xxxx.cloud.databricks.com
+[ ] FILL_IN_YOUR_DATABRICKS_TOKEN          personal access token
+[ ] FILL_IN_YOUR_DATABRICKS_CLUSTER_ID     optional existing cluster
+[ ] FILL_IN_YOUR_DATABRICKS_BRONZE_JOB_ID  optional if using RunNow elsewhere
+[ ] FILL_IN_YOUR_DATABRICKS_SILVER_DLT_ID  DLT pipeline / job id
+[ ] FILL_IN_YOUR_DATABRICKS_GOLD_JOB_ID    optional
+[ ] FILL_IN_YOUR_DATABRICKS_SQL_WAREHOUSE_ID
+[ ] FILL_IN_YOUR_DATABRICKS_HTTP_PATH      from SQL warehouse → Connection details
+
+## E. Alerts (optional but recommended)
+
+[ ] FILL_IN_YOUR_EMAIL
+[ ] FILL_IN_YOUR_SMTP_HOST / USER / PASSWORD
+[ ] FILL_IN_YOUR_SLACK_WEBHOOK_URL
+
+## F. After deploy
+
+[ ] Import Databricks notebooks from databricks-notebooks/
+[ ] Attach install-clickhouse-jdbc.sh init script to Gold cluster
+[ ] Create Airflow connection databricks_default (see airflow/config/connections-example.json)
+[ ] Unpause DAGs: logops_bronze_streaming, logops_silver_dlt, logops_gold_batch, logops_maintenance
+[ ] Run: bash scripts/health-check.sh
+[ ] Open Grafana → LogOps Overview dashboard
+
+## G. Optional — prove the pipeline locally FIRST (no AWS)
+
+[ ] Install Docker Desktop and wait until it is running
+[ ] PowerShell: .\scripts\Start-Lite.ps1
+[ ] Open http://localhost:3000 → LogOps Overview
+[ ] Open http://localhost:8081 → Kafka UI → topic logops.raw.logs
+[ ] When done: docker compose -f docker-compose.lite.yml down

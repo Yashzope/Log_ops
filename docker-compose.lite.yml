@@ -1,0 +1,216 @@
+# =============================================================================
+# LogOps — Lite local stack (fastest first win)
+# Uses Apache Kafka in KRaft mode (no ZooKeeper) for fewer / smaller images.
+#
+#   .\scripts\Start-Lite.ps1
+#   docker compose -f docker-compose.lite.yml up -d --build
+# =============================================================================
+
+services:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: logops-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft single-node broker (no ZooKeeper)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: logopsKafkaCluster01
+    volumes:
+      - lite-kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.1
+    container_name: logops-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: logops-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.12
+    container_name: logops-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: logops
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-logops}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-logops}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - lite-clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  clickhouse-init:
+    image: clickhouse/clickhouse-server:23.12
+    container_name: logops-clickhouse-init
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - ./clickhouse/init.sql:/init.sql:ro
+      - ./clickhouse/apply-init.sh:/apply-init.sh:ro
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-logops}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-logops}
+      CLICKHOUSE_HOST: clickhouse
+    entrypoint: ["/bin/bash", "/apply-init.sh"]
+    restart: "no"
+
+  clickhouse-seed:
+    image: clickhouse/clickhouse-server:23.12
+    container_name: logops-clickhouse-seed
+    depends_on:
+      clickhouse-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./clickhouse/seed-demo-data.sql:/seed.sql:ro
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-logops}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-logops}
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -euo pipefail
+        clickhouse-client --host clickhouse --user "$${CLICKHOUSE_USER}" --password "$${CLICKHOUSE_PASSWORD}" --multiquery < /seed.sql
+        echo "Demo seed data loaded"
+    restart: "no"
+
+  log-generator:
+    build:
+      context: ./log-generator
+    container_name: logops-log-generator
+    volumes:
+      - lite-logops-logs:/var/log/logops
+    environment:
+      LOG_DIR: /var/log/logops
+      SLEEP_MIN_SECONDS: "0.5"
+      SLEEP_MAX_SECONDS: "2.0"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /var/log/logops/app_logs.json"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  fluent-bit:
+    image: fluent/fluent-bit:2.2.2
+    container_name: logops-fluent-bit
+    depends_on:
+      kafka:
+        condition: service_healthy
+      log-generator:
+        condition: service_healthy
+    volumes:
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - ./fluent-bit/enrich.lua:/fluent-bit/etc/enrich.lua:ro
+      - lite-logops-logs:/var/log/logops:ro
+    environment:
+      MSK_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-logops.raw.logs}
+    # Official fluent-bit image is distroless-ish — skip active probes
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  log-processor:
+    build:
+      context: ./log-processor
+    container_name: logops-log-processor
+    depends_on:
+      kafka:
+        condition: service_healthy
+      clickhouse-init:
+        condition: service_completed_successfully
+      fluent-bit:
+        condition: service_started
+    environment:
+      MSK_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-logops.raw.logs}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-logops}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-logops}
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: logops-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin123}
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-logops}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-logops}
+    volumes:
+      - lite-grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      clickhouse-seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  lite-kafka-data:
+  lite-clickhouse-data:
+  lite-logops-logs:
+  lite-grafana-data:

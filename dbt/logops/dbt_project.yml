@@ -1,0 +1,23 @@
+# dbt project definition for LogOps marts built on Databricks Delta tables
+name: logops
+version: 1.0.0
+config-version: 2
+profile: logops
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  logops:
+    staging:
+      +materialized: incremental
+    marts:
+      +materialized: table

@@ -1,0 +1,15 @@
+# Prometheus scrape config for LogOps optional monitoring stack
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus scrapes itself so you can verify the monitoring stack
+  - job_name: prometheus
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  # Host CPU / memory / disk metrics from Node Exporter
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]

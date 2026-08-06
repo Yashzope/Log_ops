@@ -1,0 +1,35 @@
+# =============================================================================
+# LogOps — NASA-HTTP data source override for the lite stack
+#
+#   .\scripts\Download-Nasa.ps1
+#   .\scripts\Start-Lite-Nasa.ps1
+#
+# Replaces the synthetic log-generator with a replayer that streams the public
+# NASA Kennedy Space Center WWW access logs through Fluent Bit → Kafka → …
+# =============================================================================
+
+services:
+  log-generator:
+    # Keep the service name so fluent-bit depends_on still resolves, but run
+    # the NASA replayer instead of the Faker-based generator.
+    build:
+      context: ./nasa-replayer
+    container_name: logops-nasa-replayer
+    volumes:
+      - lite-logops-logs:/var/log/logops
+      - ./data/nasa:/data/nasa:ro
+    environment:
+      NASA_LOG_PATH: ${NASA_LOG_PATH:-/data/nasa/NASA_access_log_Jul95.gz}
+      LOG_DIR: /var/log/logops
+      # ~20 lines/sec — dense enough for Grafana, gentle on laptop CPU
+      SLEEP_SECONDS: "0.05"
+      LOOP: "true"
+      SYNTHETIC_LATENCY: "true"
+      WRITE_APP_JSON: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /var/log/logops/nginx_access.log"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped

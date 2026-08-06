@@ -1,0 +1,127 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Requests / sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "logops_clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2, "fillOpacity": 15 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT\n  toStartOfMinute(window_start) AS time,\n  sum(request_count) / 60.0 AS requests_per_sec\nFROM logops.metrics_5min\nWHERE $__timeFilter(window_start)\nGROUP BY time\nORDER BY time"
+        }
+      ]
+    },
+    {
+      "title": "Error rate %",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "logops_clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT\n  toStartOfMinute(window_start) AS time,\n  if(sum(request_count) = 0, 0, sum(error_count) * 100.0 / sum(request_count)) AS error_rate_pct\nFROM logops.metrics_5min\nWHERE $__timeFilter(window_start)\nGROUP BY time\nORDER BY time"
+        }
+      ]
+    },
+    {
+      "title": "p95 latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "logops_clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT\n  toStartOfMinute(window_start) AS time,\n  quantileTDigest(0.95)(p95_latency_ms) AS p95_latency_ms\nFROM logops.metrics_5min\nWHERE $__timeFilter(window_start)\nGROUP BY time\nORDER BY time"
+        }
+      ]
+    },
+    {
+      "title": "Top 5 services by requests",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "logops_clickhouse" },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT\n  service,\n  sum(request_count) AS requests\nFROM logops.metrics_5min\nWHERE $__timeFilter(window_start)\nGROUP BY service\nORDER BY requests DESC\nLIMIT 5"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["logops", "clickhouse", "observability"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "LogOps Overview",
+  "uid": "logops-overview",
+  "version": 1,
+  "weekStart": ""
+}

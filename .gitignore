@@ -1,0 +1,55 @@
+# Auto-prepared by scripts/Prepare-Aws.ps1 - review before terraform apply
+# Also ignore accidental prepared copies
+aws-infra/terraform.tfvars.prepared
+aws-infra/terraform.tfstate
+aws-infra/terraform.tfstate.*
+aws-infra/tfplan
+aws-infra/.terraform/
+aws-infra/.terraform.lock.hcl
+
+# Airflow runtime
+airflow/logs/
+__pycache__/
+*.pyc
+.Python
+
+# Deploy artifacts
+logops-deploy.zip
+
+# dbt
+dbt/logops/target/
+dbt/logops/dbt_packages/
+dbt/logops/logs/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Python / venv
+.venv/
+venv/
+*.egg-info/
+
+# Local environment and runtime files
+.env
+.env.*
+*.pem
+*.key
+*.log
+*.sqlite3
+*.db
+*.sqlite
+*.pid
+*.cache
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# NASA-HTTP dataset (download via scripts/Download-Nasa.ps1)
+data/nasa/*.gz
+data/nasa/*.log
+!data/nasa/README.md

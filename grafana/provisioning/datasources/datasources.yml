@@ -1,0 +1,30 @@
+# Auto-provision Grafana datasources for LogOps
+apiVersion: 1
+
+datasources:
+  # ClickHouse — primary source for log/metrics dashboards
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    uid: logops_clickhouse
+    isDefault: true
+    editable: true
+    jsonData:
+      host: clickhouse
+      port: 8123
+      protocol: http
+      defaultDatabase: logops
+      username: ${CLICKHOUSE_USER}
+    secureJsonData:
+      password: ${CLICKHOUSE_PASSWORD}
+
+  # Prometheus — optional host/container metrics when monitoring profile is on
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    uid: logops_prometheus
+    url: http://prometheus:9090
+    isDefault: false
+    editable: true
+    jsonData:
+      timeInterval: 15s

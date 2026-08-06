@@ -1,0 +1,101 @@
+# =============================================================================
+# LogOps — dbt sources, models, descriptions, and tests
+# =============================================================================
+
+version: 2
+
+sources:
+  - name: silver
+    description: Databricks Silver curated logs produced by the DLT pipeline
+    schema: silver
+    tables:
+      - name: clean_logs
+        description: Cleaned and enriched individual log events
+        columns:
+          - name: request_id
+            description: Unique id for the request/event
+            tests:
+              - not_null
+          - name: event_time
+            description: Event timestamp from the producer
+            tests:
+              - not_null
+          - name: level
+            description: Log severity level
+            tests:
+              - accepted_values:
+                  values: ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
+
+models:
+  - name: stg_logs
+    description: Incremental staging model over silver.clean_logs
+    columns:
+      - name: request_id
+        description: Primary key for merge incremental loads
+        tests:
+          - not_null
+          - unique
+      - name: event_time
+        description: Parsed event timestamp
+        tests:
+          - not_null
+      - name: service
+        description: Lowercased microservice name
+        tests:
+          - not_null
+      - name: level
+        description: Uppercased log level
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
+      - name: status_code
+        description: HTTP status code (0 if not applicable)
+      - name: is_error
+        description: True when level is ERROR/FATAL or status >= 500
+      - name: performance_tier
+        description: Latency bucket (fast/normal/slow/critical/unknown)
+        tests:
+          - accepted_values:
+              values: ["fast", "normal", "slow", "critical", "unknown"]
+      - name: status_category
+        description: HTTP status class label
+        tests:
+          - accepted_values:
+              values:
+                - "n/a"
+                - "informational"
+                - "success"
+                - "redirect"
+                - "client_error"
+                - "server_error"
+
+  - name: fct_daily_metrics
+    description: Daily per-service metrics for dashboards and interviews
+    columns:
+      - name: event_date
+        description: Calendar date of the metrics
+        tests:
+          - not_null
+      - name: service
+        description: Microservice name
+        tests:
+          - not_null
+      - name: request_count
+        description: Total events that day
+        tests:
+          - not_null
+      - name: error_count
+        description: Count of error events
+        tests:
+          - not_null
+      - name: error_rate_pct
+        description: Errors as a percentage of requests
+        tests:
+          - not_null
+      - name: avg_latency_ms
+        description: Average latency in milliseconds
+      - name: p95_latency_ms
+        description: Approximate 95th percentile latency
+      - name: dbt_updated_at
+        description: When dbt last rebuilt this row set
