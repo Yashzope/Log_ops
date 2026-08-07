@@ -51,7 +51,6 @@ Beginner-friendly, production-shaped project that collects logs, streams them th
         Airflow (EC2 + Docker) orchestrates Bronze / Silver / Gold / VACUUM
         Terraform provisions VPC, EC2, MSK, S3, IAM
 ```
-
 ---
 
 ## Prerequisites
@@ -386,4 +385,4 @@ cd aws-infra
 terraform destroy
 ```
 
-Stop Databricks jobs/clusters in the Databricks UI as well.
+Stop Databricks jobs/clusters in the Databricks UI as well
